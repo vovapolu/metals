@@ -162,6 +162,7 @@ class MetalsLanguageServer(
   private val packageProvider: PackageProvider =
     new PackageProvider(buildTargets)
   private var compilers: Compilers = _
+  private var zioShieldProvider: ZioShieldProvider = _
   var tables: Tables = _
   var statusBar: StatusBar = _
   private var embedded: Embedded = _
@@ -384,6 +385,19 @@ class MetalsLanguageServer(
         sh
       )
     }
+    zioShieldProvider = new ZioShieldProvider(
+      workspace,
+      Option(params.getWorkspaceFolders) match {
+        case Some(folders) =>
+          folders.asScala.map(_.getUri.toAbsolutePath).toList
+        case _ =>
+          Nil
+      },
+      buildTargets,
+      languageClient,
+      semanticdbs,
+      () => userConfig
+    )
   }
 
   def setupJna(): Unit = {
@@ -524,6 +538,7 @@ class MetalsLanguageServer(
       statusBar.start(sh, 0, 1, TimeUnit.SECONDS)
       tables.connect()
       registerNiceToHaveFilePatterns()
+
       val result = Future
         .sequence(
           List[Future[Unit]](
@@ -534,6 +549,24 @@ class MetalsLanguageServer(
             Future(formattingProvider.load())
           )
         )
+        .flatMap { _ =>
+          statusBar.trackFuture(
+            s"Building ZIO Shield cache",
+            Future {
+              timedThunk("built ZIO Shield cache", onlyIf = true) {
+                try zioShieldProvider.buildCache(
+                  buildTargets.sourceDirectories.map(_.toNIO)
+                )
+                catch {
+                  case NonFatal(e) =>
+                    scribe.error("unexpected error ZIO Shield cache", e)
+                  case e: Throwable =>
+                    scribe.info("error", e)
+                }
+              }
+            }
+          )
+        }
         .ignoreValue
       result
     } else {
@@ -615,8 +648,12 @@ class MetalsLanguageServer(
         ()
       }
     } else {
-      compilers.load(List(path))
-      compilations.compileFiles(List(path)).ignoreValue.asJava
+      val compilation = for {
+        _ <- compilers.load(List(path))
+        _ <- compilations.compileFiles(List(path))
+        _ <- Future { zioShieldProvider.runShield(List(path.toNIO)) }
+      } yield ()
+      compilation.ignoreValue.asJava
     }
   }
 
@@ -649,10 +686,14 @@ class MetalsLanguageServer(
               )
           val needsCompile = isAffectedByCurrentCompilation || isAffectedByLastCompilation
           if (needsCompile) {
-            compilations
-              .compileFiles(List(path))
-              .map(_ => DidFocusResult.Compiled)
-              .asJava
+            val compilation = for {
+              res <- compilations
+                .compileFiles(List(path))
+                .map(_ => DidFocusResult.Compiled)
+              _ <- Future { zioShieldProvider.runShield(List(path.toNIO)) }
+            } yield res
+
+            compilation.asJava
           } else {
             CompletableFuture.completedFuture(DidFocusResult.AlreadyCompiled)
           }
@@ -777,6 +818,18 @@ class MetalsLanguageServer(
           onBuildChanged(paths).ignoreValue
         )
       )
+      .flatMap { _ =>
+        val nioPaths = paths.map(_.toNIO).toList
+
+        for {
+          _ <- statusBar.trackFuture(s"Updating ZIO Shield cache", Future {
+            timedThunk("udpated ZIO Shield cache", onlyIf = true) {
+              zioShieldProvider.updateCache(nioPaths)
+            }
+          })
+          _ <- Future { zioShieldProvider.runShield(nioPaths) }
+        } yield ()
+      }
       .ignoreValue
   }
 

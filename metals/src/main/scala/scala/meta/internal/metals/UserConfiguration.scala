@@ -24,6 +24,8 @@ case class UserConfiguration(
     millScript: Option[String] = None,
     scalafmtConfigPath: RelativePath =
       UserConfiguration.default.scalafmtConfigPath,
+    zioShieldConfigPath: RelativePath =
+      UserConfiguration.default.zioShieldConfigPath,
     symbolPrefixes: Map[String, String] =
       UserConfiguration.default.symbolPrefixes
 )
@@ -31,6 +33,7 @@ object UserConfiguration {
 
   object default {
     def scalafmtConfigPath: RelativePath = RelativePath(".scalafmt.conf")
+    def zioShieldConfigPath: RelativePath = RelativePath(".shield.yaml")
     def symbolPrefixes: Map[String, String] =
       PresentationCompilerConfig.defaultSymbolPrefixes().asScala.toMap
   }
@@ -89,6 +92,16 @@ object UserConfiguration {
       "project/.scalafmt.conf",
       "Scalafmt config path",
       """Optional custom path to the .scalafmt.conf file.
+        |Should be relative to the workspace root directory and use forward slashes / for file
+        |separators (even on Windows).
+        |""".stripMargin
+    ),
+    UserConfigurationOption(
+      "zio-shield-config-path",
+      default.zioShieldConfigPath.toString,
+      "project/.shield.yaml",
+      "ZIO Shield config path",
+      """Optional custom path to the ZIO Shield configuration file.
         |Should be relative to the workspace root directory and use forward slashes / for file
         |separators (even on Windows).
         |""".stripMargin
@@ -152,6 +165,10 @@ object UserConfiguration {
       getStringKey("scalafmt-config-path")
         .map(RelativePath(_))
         .getOrElse(default.scalafmtConfigPath)
+    val zioShieldConfigPath =
+      getStringKey("zio-shield-config-path")
+        .map(RelativePath(_))
+        .getOrElse(default.zioShieldConfigPath)
     val sbtScript =
       getStringKey("sbt-script")
     val gradleScript =
@@ -176,6 +193,7 @@ object UserConfiguration {
           mavenScript,
           millScript,
           scalafmtConfigPath,
+          zioShieldConfigPath,
           symbolPrefixes
         )
       )

@@ -44,7 +44,7 @@ final class FileSystemSemanticdbs(
   /**
    * Returns the directory containing SemanticDB files for this Scala source file.
    */
-  private def semanticdbTargetroot(
+  def semanticdbTargetroot(
       scalaPath: AbsolutePath
   ): Option[AbsolutePath] = {
     for {

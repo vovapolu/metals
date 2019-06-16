@@ -262,7 +262,8 @@ lazy val metals = project
       "com.lihaoyi" %% "pprint" % "0.5.5",
       // for producing SemanticDB from Scala source files
       "org.scalameta" %% "scalameta" % V.scalameta,
-      "org.scalameta" % "semanticdb-scalac-core" % V.scalameta cross CrossVersion.full
+      "org.scalameta" % "semanticdb-scalac-core" % V.scalameta cross CrossVersion.full,
+      "zio.shield" %% "zio-shield-api" % "0.1.0-SNAPSHOT"
     ),
     buildInfoPackage := "scala.meta.internal.metals",
     buildInfoKeys := Seq[BuildInfoKey](

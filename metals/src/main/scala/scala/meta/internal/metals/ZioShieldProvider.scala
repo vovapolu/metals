@@ -133,16 +133,16 @@ final class ZioShieldProvider(
     )
   }
 
-  def updateCache(files: List[Path]): Unit = this.synchronized {
+  def updateCache(files: List[Path]): Unit = this.synchronized {    
     val newFiles = filterNewFiles(lastCached, files)
     markFiles(lastCached, newFiles)
 
     if (newFiles.nonEmpty) {
-      scribe.info(s"Updating ZIO Shield cache on ${newFiles}")
+      scribe.info(s"Updating ZIO Shield cache on ${newFiles.mkString(",")}")
 
       zioShield.updateCache(newFiles)(
         d => scribe.info(s"ZIO Shield: ${d.consoleMessage}")
-      )
+      )     
     }
   }
 

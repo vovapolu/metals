@@ -553,9 +553,9 @@ class MetalsLanguageServer(
           statusBar.trackFuture(
             s"Building ZIO Shield cache",
             Future {
-              timedThunk("built ZIO Shield cache", onlyIf = true) {
+              timedThunk("built ZIO Shield cache", onlyIf = true) {              
                 try zioShieldProvider.buildCache(
-                  buildTargets.sourceDirectories.map(_.toNIO)
+                  buildTargets.sourceItems.map(_.toNIO)
                 )
                 catch {
                   case NonFatal(e) =>
